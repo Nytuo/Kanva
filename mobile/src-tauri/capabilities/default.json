@@ -1,0 +1,14 @@
+{
+  "identifier": "default",
+  "description": "Capability for the Kanva mobile app",
+  "platforms": ["iOS", "android"],
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "core:event:allow-listen",
+    "core:event:allow-emit",
+    "http:default",
+    "store:default"
+  ]
+}
