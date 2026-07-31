@@ -194,17 +194,30 @@ jobs:
         working-directory: web
         run: npm run build
 
+      - name: package web dist
+        run: zip -r kanva-web.zip web/dist
+
       - name: upload dist artifact
         uses: actions/upload-artifact@v4
         with:
           name: kanva-web-dist
-          path: web/dist
+          path: kanva-web.zip
 
+ # ============================================================
+  # Docker — Native platform builds (x86_64 & ARM64 hardware)
   # ============================================================
-  # Docker images — multi-arch (linux/amd64, linux/arm64), pushed to GHCR
-  # ============================================================
-  docker:
-    runs-on: ubuntu-latest
+  docker-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux/amd64
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -213,9 +226,6 @@ jobs:
 
       - name: set repo owner (lowercase)
         run: echo "REPO_OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
-      - name: set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -227,33 +237,72 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: build & push server image
+      - name: build & push server image (by arch)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: server/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: true
           provenance: false
           tags: |
-            ghcr.io/${{ env.REPO_OWNER }}/kanva-server:latest
-            ghcr.io/${{ env.REPO_OWNER }}/kanva-server:${{ github.sha }}
-          cache-from: type=gha,scope=kanva-server
-          cache-to: type=gha,mode=max,scope=kanva-server
+            ghcr.io/${{ env.REPO_OWNER }}/kanva-server:${{ github.sha }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=kanva-server-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=kanva-server-${{ matrix.arch }}
 
-      - name: build & push web image
+      - name: build & push web image (by arch)
         uses: docker/build-push-action@v6
         with:
           context: web
           file: web/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: true
           provenance: false
           tags: |
-            ghcr.io/${{ env.REPO_OWNER }}/kanva-web:latest
-            ghcr.io/${{ env.REPO_OWNER }}/kanva-web:${{ github.sha }}
-          cache-from: type=gha,scope=kanva-web
-          cache-to: type=gha,mode=max,scope=kanva-web
+            ghcr.io/${{ env.REPO_OWNER }}/kanva-web:${{ github.sha }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=kanva-web-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=kanva-web-${{ matrix.arch }}
+
+  # Merge single-arch images into multi-arch tags (`latest` and `${{ github.sha }}`)
+  docker-manifest:
+    needs: docker-build
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: set repo owner (lowercase)
+        run: echo "REPO_OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: create and push server multi-arch manifest
+        run: |
+          docker manifest create ghcr.io/${{ env.REPO_OWNER }}/kanva-server:${{ github.sha }} \
+            ghcr.io/${{ env.REPO_OWNER }}/kanva-server:${{ github.sha }}-amd64 \
+            ghcr.io/${{ env.REPO_OWNER }}/kanva-server:${{ github.sha }}-arm64
+          docker manifest push ghcr.io/${{ env.REPO_OWNER }}/kanva-server:${{ github.sha }}
+
+          docker manifest create ghcr.io/${{ env.REPO_OWNER }}/kanva-server:latest \
+            ghcr.io/${{ env.REPO_OWNER }}/kanva-server:${{ github.sha }}-amd64 \
+            ghcr.io/${{ env.REPO_OWNER }}/kanva-server:${{ github.sha }}-arm64
+          docker manifest push ghcr.io/${{ env.REPO_OWNER }}/kanva-server:latest
+
+      - name: create and push web multi-arch manifest
+        run: |
+          docker manifest create ghcr.io/${{ env.REPO_OWNER }}/kanva-web:${{ github.sha }} \
+            ghcr.io/${{ env.REPO_OWNER }}/kanva-web:${{ github.sha }}-amd64 \
+            ghcr.io/${{ env.REPO_OWNER }}/kanva-web:${{ github.sha }}-arm64
+          docker manifest push ghcr.io/${{ env.REPO_OWNER }}/kanva-web:${{ github.sha }}
+
+          docker manifest create ghcr.io/${{ env.REPO_OWNER }}/kanva-web:latest \
+            ghcr.io/${{ env.REPO_OWNER }}/kanva-web:${{ github.sha }}-amd64 \
+            ghcr.io/${{ env.REPO_OWNER }}/kanva-web:${{ github.sha }}-arm64
+          docker manifest push ghcr.io/${{ env.REPO_OWNER }}/kanva-web:latest
 
   # ============================================================
   # Mobile — Android (real build) + iOS (best-effort, unsigned)
@@ -369,7 +418,11 @@ jobs:
       - name: install mobile (tauri-cli) dependencies
         working-directory: mobile
         run: npm install
-
+        
+      - name: init iOS project
+        working-directory: mobile
+        run: npx tauri ios init
+        
       - name: build iOS app (simulator, unsigned)
         working-directory: mobile
         env:
