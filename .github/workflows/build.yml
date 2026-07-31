@@ -5,7 +5,7 @@ name: build
 #   - server    standalone `kanva-server` binaries (same 5 targets)
 #   - web       static SPA build (platform-independent)
 #   - docker    server + web images, multi-arch (linux/amd64, linux/arm64) pushed to GHCR
-#   - mobile    Android APK/AAB, best-effort iOS simulator build
+#   - mobile    Android APK/AAB, iOS simulator build
 #
 # Desktop releases are signed with the Tauri updater key (see TAURI_SIGNING_PRIVATE_KEY*
 # secrets below) — required for the in-app auto-updater (UpdaterModal) to trust them.
@@ -71,7 +71,7 @@ jobs:
         if: startsWith(matrix.runs_on, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
 
       - name: setup node
         uses: actions/setup-node@v4
@@ -109,8 +109,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kanva-desktop-${{ matrix.id }}
+          # Exclude extracted runtime libs placed in release/ directly by AppImage tools
           path: |
-            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/rpm/*.rpm
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
 
   # ============================================================
   # Standalone server binary — for self-hosters who don't want Docker
@@ -227,6 +234,7 @@ jobs:
           file: server/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: false
           tags: |
             ghcr.io/${{ env.REPO_OWNER }}/kanva-server:latest
             ghcr.io/${{ env.REPO_OWNER }}/kanva-server:${{ github.sha }}
@@ -240,6 +248,7 @@ jobs:
           file: web/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: false
           tags: |
             ghcr.io/${{ env.REPO_OWNER }}/kanva-web:latest
             ghcr.io/${{ env.REPO_OWNER }}/kanva-web:${{ github.sha }}
@@ -301,15 +310,10 @@ jobs:
       - name: NDK env
         run: echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
 
-      # Scaffold the Android Gradle project so the signing step below has
-      # somewhere to write keystore.properties before the real build runs.
       - name: init Android project
         working-directory: mobile
         run: npx tauri android init
 
-      # A signed release build needs a keystore — decode one from repo secrets
-      # if configured. Without it, this produces a debug-signed APK/AAB that's
-      # fine for CI validation but not for the Play Store.
       - name: configure release signing (optional)
         if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
         env:
@@ -366,13 +370,10 @@ jobs:
         working-directory: mobile
         run: npm install
 
-      # Real device/App Store builds need an Apple Developer certificate +
-      # provisioning profile (APPLE_CERTIFICATE_BASE64, APPLE_CERTIFICATE_PASSWORD,
-      # APPLE_PROVISIONING_PROFILE_BASE64, APPLE_TEAM_ID secrets). Without them we
-      # only build for the simulator, which needs no signing — good enough to
-      # catch compile breakage in CI, not to publish an IPA.
       - name: build iOS app (simulator, unsigned)
         working-directory: mobile
+        env:
+          APPLE_DEVELOPMENT_TEAM: "0000000000"
         run: npm run ios -- --target aarch64-sim
 
   # ============================================================
