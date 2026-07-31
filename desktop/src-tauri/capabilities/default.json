@@ -8,6 +8,8 @@
     "process:default",
     "core:event:allow-listen",
     "core:event:allow-emit",
-    "http:default"
+    "http:default",
+    "opener:default",
+    "updater:default"
   ]
 }

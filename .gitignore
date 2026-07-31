@@ -26,6 +26,12 @@ Thumbs.db
 # Tauri
 /desktop/src-tauri/target/
 
+# Tauri updater signing key — NEVER commit the private half.
+# Only the public key belongs in tauri.conf.json.
+*.key
+*.pem
+!*.pub.pem
+
 # Mobile
 /mobile/android/.gradle/
 /mobile/android/app/build/

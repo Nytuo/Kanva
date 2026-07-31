@@ -1,5 +1,5 @@
 use serde::Serialize;
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 use tauri_plugin_store::StoreExt;
 
 const STORE_FILE: &str = "config.json";

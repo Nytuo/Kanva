@@ -1,3 +1,5 @@
+mod updater;
+
 use serde::Serialize;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
@@ -72,6 +74,8 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(EmbeddedServer {
             url: Mutex::new(None),
             port: Mutex::new(0),
@@ -79,9 +83,28 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_embedded_server_url,
             is_desktop,
+            updater::check_for_update,
+            updater::install_update,
+            updater::open_releases_page,
+            updater::restart_app,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
+
+            // Check for an app update shortly after launch and notify the
+            // frontend if one is available (UpdaterModal listens for this).
+            let update_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
+                match updater::check_for_update(update_handle.clone()).await {
+                    Ok(Some(info)) => {
+                        tracing::info!("Update available: {}", info.version);
+                        let _ = update_handle.emit("updater-update-available", &info);
+                    }
+                    Ok(None) => tracing::info!("Kanva desktop is up to date."),
+                    Err(e) => tracing::warn!("Update check failed: {}", e),
+                }
+            });
 
             // Resolve data directory for embedded server
             let data_dir = app

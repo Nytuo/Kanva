@@ -37,6 +37,7 @@
       "icons/icon.ico"
     ],
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "longDescription": "A full-featured Kanban board management application with calendar planner and integrations.",
     "shortDescription": "Kanban Board Management",
     "linux": {
@@ -57,6 +58,12 @@
   "plugins": {
     "shell": {
       "open": true
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdEODAzQkVEMDAyMDVEQjUKUldTMVhTQUE3VHVBZlozT1didVRuNnVSZ1MwRzc4N3NjbUhvalZqQlZjdGFZNytFbkdZeXdqN0QK",
+      "endpoints": [
+        "https://github.com/Nytuo/Kanva/releases/latest/download/latest.json"
+      ]
     }
   }
 }

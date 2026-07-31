@@ -5,6 +5,7 @@ import { useServerStore } from '@/store/server';
 import { ThemeProvider } from '@/components/layout/ThemeProvider';
 import { ToastProvider, Toaster } from '@/components/ui/toaster';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import UpdaterModal from '@/components/common/UpdaterModal';
 import Layout from '@/components/layout/Layout';
 import ServerSelectPage from '@/pages/ServerSelectPage';
 import LoginPage from '@/pages/LoginPage';
@@ -160,6 +161,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/servers" replace />} />
       </Routes>
       </ErrorBoundary>
+      <UpdaterModal />
       <Toaster />
       </ToastProvider>
     </ThemeProvider>
