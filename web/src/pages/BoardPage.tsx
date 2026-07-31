@@ -16,6 +16,8 @@ import {
   Edit2,
   Check,
   Paintbrush,
+  LayoutGrid,
+  NotebookText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import KanbanBoard from '@/components/board/KanbanBoard';
+import NotesPanel from '@/components/notes/NotesPanel';
 import BackgroundPicker from '@/components/board/BackgroundPicker';
 import { boardBgStyle } from '@/components/board/board-backgrounds';
 import { useBoard, useToggleStar, useUpdateBoard, useDeleteBoard } from '@/hooks/useApi';
@@ -71,6 +74,7 @@ export default function BoardPage() {
   const [titleDraft, setTitleDraft] = useState('');
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [bgDraft, setBgDraft] = useState({ bgColor: '', bgImage: '' });
+  const [view, setView] = useState<'board' | 'notes'>('board');
 
   if (isLoading) {
     return (
@@ -236,21 +240,34 @@ export default function BoardPage() {
             )}
           </div>
 
-          {/* Filter toggle */}
+          {/* Board / Notes view toggle */}
           <Button
             variant="ghost"
             size="sm"
-            className={`text-white hover:bg-white/20 gap-1 ${showFilters ? 'bg-white/20' : ''}`}
-            onClick={() => setShowFilters((v) => !v)}
+            className="text-white hover:bg-white/20 gap-1"
+            onClick={() => setView((v) => (v === 'board' ? 'notes' : 'board'))}
           >
-            <Filter className="h-4 w-4" />
-            Filter
-            {activeFilterCount > 0 && (
-              <span className="ml-1 bg-primary text-primary-foreground text-[10px] rounded-full px-1.5 py-0.5 leading-none">
-                {activeFilterCount}
-              </span>
-            )}
+            {view === 'board' ? <NotebookText className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
+            {view === 'board' ? 'Notes' : 'Board'}
           </Button>
+
+          {/* Filter toggle */}
+          {view === 'board' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`text-white hover:bg-white/20 gap-1 ${showFilters ? 'bg-white/20' : ''}`}
+              onClick={() => setShowFilters((v) => !v)}
+            >
+              <Filter className="h-4 w-4" />
+              Filter
+              {activeFilterCount > 0 && (
+                <span className="ml-1 bg-primary text-primary-foreground text-[10px] rounded-full px-1.5 py-0.5 leading-none">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          )}
 
           {/* Board menu */}
           <DropdownMenu>
@@ -302,7 +319,7 @@ export default function BoardPage() {
       </div>
 
       {/* Filter bar */}
-      {showFilters && (
+      {view === 'board' && showFilters && (
         <div className="flex items-center gap-2 px-4 py-2 bg-black/30 backdrop-blur-sm flex-wrap">
           <Input
             placeholder="Search cards..."
@@ -388,9 +405,13 @@ export default function BoardPage() {
         </div>
       )}
 
-      {/* Kanban board */}
-      <div className="flex-1 overflow-hidden">
-        <KanbanBoard board={board} filters={filters} onRefresh={refetch} />
+      {/* Kanban board / Notes */}
+      <div className={`flex-1 overflow-hidden ${view === 'notes' ? 'bg-background' : ''}`}>
+        {view === 'board' ? (
+          <KanbanBoard board={board} filters={filters} onRefresh={refetch} />
+        ) : (
+          <NotesPanel boardId={board.id} />
+        )}
       </div>
 
       {/* Background picker dialog */}

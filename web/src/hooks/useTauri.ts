@@ -232,7 +232,7 @@ export function useStandaloneAutoLogin(isEmbeddedReady: boolean) {
       // becomes invalid. Probing /auth/me is the cheapest way to check.
       if (isAuthenticated) {
         try {
-          await fetchMe();
+          await useAuthStore.getState().fetchMe();
           navigate('/', { replace: true });
           return;
         } catch {

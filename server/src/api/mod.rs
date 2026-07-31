@@ -9,6 +9,7 @@ pub(crate) mod auth;
 pub(crate) mod boards;
 pub(crate) mod cards;
 pub(crate) mod lists;
+pub(crate) mod notes;
 pub(crate) mod teams;
 pub(crate) mod calendar;
 pub(crate) mod integrations;
@@ -33,8 +34,15 @@ pub fn create_router(state: AppState) -> Router {
                 http::header::ACCEPT,
             ])
     } else {
+        let origin = state.config.cors_origin.parse::<http::HeaderValue>().unwrap_or_else(|_| {
+            tracing::warn!(
+                "CORS_ORIGIN '{}' is not a valid header value — falling back to http://localhost:3000",
+                state.config.cors_origin
+            );
+            http::HeaderValue::from_static("http://localhost:3000")
+        });
         CorsLayer::new()
-            .allow_origin(state.config.cors_origin.parse::<http::HeaderValue>().unwrap())
+            .allow_origin(origin)
             .allow_methods([
                 http::Method::GET,
                 http::Method::POST,
@@ -57,6 +65,7 @@ pub fn create_router(state: AppState) -> Router {
         .nest("/api/boards", boards::router())
         .nest("/api/lists", lists::router())
         .nest("/api/cards", cards::router())
+        .nest("/api/notes", notes::router())
         .nest("/api/calendar", calendar::router())
         .nest("/api/integrations", integrations::router());
 

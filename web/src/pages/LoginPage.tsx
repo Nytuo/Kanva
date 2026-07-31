@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Kanban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,7 +40,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <Kanban className="h-10 w-10 text-primary" />
+            <img src="/logo.png" alt="Kanva" className="h-10 w-10 rounded-lg" />
           </div>
           <CardTitle>Welcome to Kanva</CardTitle>
           <CardDescription>Sign in to your account to continue</CardDescription>

@@ -873,7 +873,7 @@ pub async fn create_from_template(
 
 // Helper functions
 
-async fn check_board_access(
+pub(crate) async fn check_board_access(
     state: &AppState,
     user_id: Uuid,
     board_id: Uuid,

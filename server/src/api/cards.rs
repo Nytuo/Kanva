@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Json, Path, State},
+    extract::{DefaultBodyLimit, Json, Path, State},
     routing::{delete, get, post, put},
     Router,
 };
@@ -25,7 +25,16 @@ pub fn router() -> Router<AppState> {
         .route("/:id/checklists/:checklist_id", put(update_checklist).delete(delete_checklist))
         .route("/:id/checklists/:checklist_id/items", post(create_checklist_item))
         .route("/:id/checklists/:checklist_id/items/:item_id", put(update_checklist_item).delete(delete_checklist_item))
-        .route("/:id/attachments", get(list_attachments).post(upload_attachment))
+        .route(
+            "/:id/attachments",
+            // Body-size enforcement against config.max_upload_size_mb happens in
+            // the service layer; this just raises axum's 2MB default so uploads
+            // up to our largest configured limit (standalone: 50MB) aren't rejected
+            // before they even reach that check.
+            get(list_attachments)
+                .post(upload_attachment)
+                .layer(DefaultBodyLimit::max(100 * 1024 * 1024)),
+        )
         .route("/:id/attachments/:attachment_id", delete(delete_attachment))
         .route("/:id/custom-fields", get(get_custom_field_values).put(set_custom_field_value))
         .route("/:id/archive", post(archive_card))

@@ -133,16 +133,25 @@ pub async fn start_server(config: Config) -> anyhow::Result<String> {
     sqlx::any::install_default_drivers();
 
     // Database connection via AnyPool
+    let is_sqlite = config.is_sqlite();
     let db = sqlx::any::AnyPoolOptions::new()
         .max_connections(if config.standalone_mode { 5 } else { 20 })
+        // Every pooled connection needs this, not just the first one — set it via
+        // after_connect rather than a one-off query on the pool.
+        .after_connect(move |conn, _meta| {
+            Box::pin(async move {
+                if is_sqlite {
+                    sqlx::query("PRAGMA foreign_keys = ON").execute(conn).await?;
+                }
+                Ok(())
+            })
+        })
         .connect(&config.database_url)
         .await?;
 
     // Run migrations — pick directory based on DB type
     if config.is_sqlite() {
         sqlx::migrate!("../migrations/sqlite").run(&db).await?;
-        // Enable foreign key enforcement per-connection for SQLite
-        sqlx::query("PRAGMA foreign_keys = ON").execute(&db).await?;
     } else {
         sqlx::migrate!("../migrations/postgres").run(&db).await?;
     }

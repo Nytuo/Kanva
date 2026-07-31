@@ -12,6 +12,17 @@ fn parse_dt(s: &str) -> Result<chrono::DateTime<chrono::Utc>, AppError> {
         .map_err(|_| AppError::Internal(anyhow::anyhow!("Invalid datetime: {}", s)))
 }
 
+async fn check_list_access(state: &AppState, user_id: Uuid, list_id: Uuid) -> Result<Uuid, AppError> {
+    let board_id_str = sqlx::query_scalar::<_, String>(&state.q("SELECT board_id FROM lists WHERE id = ?"))
+        .bind(list_id.to_string())
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or(AppError::NotFound("List not found".to_string()))?;
+    let board_id = parse_uuid(&board_id_str)?;
+    crate::services::boards::check_board_access(state, user_id, board_id, "").await?;
+    Ok(board_id)
+}
+
 fn list_to_response(list: &crate::models::board::List, card_count: i64) -> Result<ListResponse, AppError> {
     Ok(ListResponse {
         id: parse_uuid(&list.id)?,
@@ -77,10 +88,12 @@ pub async fn create_list(
 
 pub async fn update_list(
     state: &AppState,
-    _user_id: Uuid,
+    user_id: Uuid,
     list_id: Uuid,
     req: UpdateListRequest,
 ) -> Result<ListResponse, AppError> {
+    check_list_access(state, user_id, list_id).await?;
+
     if let Some(title) = &req.title {
         sqlx::query(&state.q("UPDATE lists SET title = ? WHERE id = ?"))
             .bind(title)
@@ -108,7 +121,8 @@ pub async fn update_list(
     list_to_response(&list, card_count)
 }
 
-pub async fn delete_list(state: &AppState, _user_id: Uuid, list_id: Uuid) -> Result<(), AppError> {
+pub async fn delete_list(state: &AppState, user_id: Uuid, list_id: Uuid) -> Result<(), AppError> {
+    check_list_access(state, user_id, list_id).await?;
     sqlx::query(&state.q("DELETE FROM lists WHERE id = ?"))
         .bind(list_id.to_string())
         .execute(&state.db)
@@ -118,10 +132,12 @@ pub async fn delete_list(state: &AppState, _user_id: Uuid, list_id: Uuid) -> Res
 
 pub async fn move_list(
     state: &AppState,
-    _user_id: Uuid,
+    user_id: Uuid,
     list_id: Uuid,
     new_position: i32,
 ) -> Result<ListResponse, AppError> {
+    check_list_access(state, user_id, list_id).await?;
+
     let list = sqlx::query_as::<_, crate::models::board::List>(
         &state.q("SELECT id, board_id, title, position, is_archived, created_at, updated_at FROM lists WHERE id = ?")
     )
@@ -177,7 +193,8 @@ pub async fn move_list(
     list_to_response(&updated, card_count)
 }
 
-pub async fn archive_list(state: &AppState, _user_id: Uuid, list_id: Uuid) -> Result<(), AppError> {
+pub async fn archive_list(state: &AppState, user_id: Uuid, list_id: Uuid) -> Result<(), AppError> {
+    check_list_access(state, user_id, list_id).await?;
     sqlx::query(&state.q("UPDATE lists SET is_archived = CASE WHEN is_archived = 1 THEN 0 ELSE 1 END WHERE id = ?"))
         .bind(list_id.to_string())
         .execute(&state.db)

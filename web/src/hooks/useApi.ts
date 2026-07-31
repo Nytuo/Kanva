@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useServerStore } from '@/store/server';
 import { useAuthStore } from '@/store/auth';
-import type { Board, BoardSummary, Card, Team, TeamMember, CalendarEvent, UserPreferences, User } from '@/types';
+import type { Board, BoardSummary, Card, Team, TeamMember, CalendarEvent, UserPreferences, User, Note } from '@/types';
 
 // ====== SERVER INFO ======
 export function useServerInfo() {
@@ -163,6 +163,56 @@ export function useAddComment(cardId: string) {
   return useMutation({
     mutationFn: async (content: string) => (await api.post(`/cards/${cardId}/comments`, { content })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['card'] }),
+  });
+}
+
+// ====== NOTES ======
+// Pass a boardId to scope to a project's shared notes; omit for the caller's
+// private global notes.
+export function useNotes(boardId?: string) {
+  const activeServerId = useServerStore((s) => s.activeServerId);
+  return useQuery<Note[]>({
+    queryKey: ['notes', activeServerId, boardId ?? 'global'],
+    queryFn: async () => (await api.get('/notes', { params: boardId ? { board_id: boardId } : {} })).data,
+    enabled: !!activeServerId,
+  });
+}
+
+export function useNote(id: string | undefined) {
+  const activeServerId = useServerStore((s) => s.activeServerId);
+  return useQuery<Note>({
+    queryKey: ['note', activeServerId, id],
+    queryFn: async () => (await api.get(`/notes/${id}`)).data,
+    enabled: !!id && !!activeServerId,
+  });
+}
+
+export function useCreateNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { board_id?: string; title?: string; content?: string }) =>
+      (await api.post('/notes', data)).data as Note,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notes'] }),
+  });
+}
+
+export function useUpdateNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<Pick<Note, 'title' | 'content' | 'position' | 'is_pinned'>> & { id: string }) =>
+      (await api.put(`/notes/${id}`, data)).data as Note,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['note'] });
+      qc.invalidateQueries({ queryKey: ['notes'] });
+    },
+  });
+}
+
+export function useDeleteNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; boardId?: string }) => (await api.delete(`/notes/${id}`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notes'] }),
   });
 }
 

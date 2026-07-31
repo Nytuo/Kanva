@@ -11,6 +11,7 @@ import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import DashboardPage from '@/pages/DashboardPage';
 import BoardPage from '@/pages/BoardPage';
+import NotesPage from '@/pages/NotesPage';
 import CalendarPage from '@/pages/CalendarPage';
 import TeamsPage from '@/pages/TeamsPage';
 import TeamDetailPage from '@/pages/TeamDetailPage';
@@ -133,6 +134,7 @@ export default function App() {
         >
           <Route index element={<DashboardPage />} />
           <Route path="board/:boardId" element={<BoardPage />} />
+          <Route path="notes" element={<NotesPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route
             path="teams"

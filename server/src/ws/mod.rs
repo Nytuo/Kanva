@@ -84,8 +84,16 @@ async fn handle_socket(socket: WebSocket, state: AppState, query: WsQuery) {
 
     let user_id = user_id.unwrap();
 
-    // Subscribe to board channel if specified
+    // Subscribe to board channel if specified — verify membership/visibility first,
+    // otherwise any authenticated user could listen in on (and inject into) any board.
     if let Some(board_id) = query.board_id {
+        if crate::services::boards::check_board_access(&state, user_id, board_id, "").await.is_err() {
+            let _ = sender.send(Message::Text(
+                serde_json::json!({"error": "Forbidden"}).to_string().into()
+            )).await;
+            return;
+        }
+
         let tx = state.ws_state.get_or_create_channel(board_id).await;
         let mut rx = tx.subscribe();
 

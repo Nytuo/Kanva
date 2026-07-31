@@ -13,7 +13,6 @@ import {
   Globe,
   Shield,
   Users,
-  Kanban,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -123,7 +122,7 @@ export default function ServerSelectPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-3">
-            <Kanban className="h-10 w-10 text-primary" />
+            <img src="/logo.png" alt="Kanva" className="h-10 w-10 rounded-lg" />
             <h1 className="text-3xl font-bold">Kanva</h1>
           </div>
           <p className="text-muted-foreground">

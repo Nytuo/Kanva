@@ -214,6 +214,18 @@ export interface Notification {
   created_at: string;
 }
 
+export interface Note {
+  id: string;
+  owner_id: string;
+  board_id?: string;
+  title: string;
+  content: string;
+  position: number;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface UserPreferences {
   theme: string;
   language: string;

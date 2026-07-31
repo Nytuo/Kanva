@@ -8,9 +8,9 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
-  Kanban,
   Server,
   ChevronDown,
+  NotebookText,
 } from 'lucide-react';
 import { useState } from 'react';
 import type React from 'react';
@@ -37,6 +37,7 @@ export default function Sidebar() {
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: NotebookText, label: 'Notes', path: '/notes' },
     { icon: Calendar, label: 'Calendar', path: '/calendar' },
     ...(teamsEnabled
       ? [{ icon: Users, label: 'Teams', path: '/teams' }]
@@ -63,7 +64,7 @@ export default function Sidebar() {
         <div className="flex items-center justify-between p-4">
           {!collapsed && (
             <Link to="/" className="flex items-center gap-2">
-              <Kanban className="h-6 w-6 text-primary" />
+              <img src="/logo.png" alt="Kanva" className="h-6 w-6 rounded-md" />
               <span className="font-bold text-lg">Kanva</span>
             </Link>
           )}

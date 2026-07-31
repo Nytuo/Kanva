@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod boards;
+pub mod notes;
 pub mod cards;
 pub mod lists;
 pub mod teams;
