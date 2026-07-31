@@ -451,6 +451,7 @@ jobs:
       - name: download all artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: 'kanva-*'
           path: artifacts
 
       - name: create release
