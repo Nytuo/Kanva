@@ -93,7 +93,7 @@ impl Config {
         Self {
             server_host: "127.0.0.1".to_string(),
             server_port: port,
-            database_url: format!("sqlite://{}/kanva.db?mode=rwc", data_dir),
+            database_url: format!("sqlite:{}/kanva.db?mode=rwc", data_dir.replace('\\', "/")),
             redis_url: String::new(), // embedded mode won't use Redis
             jwt_secret: secret,
             jwt_expiry_hours: 720, // 30 days - local user doesn't need frequent re-auth
@@ -115,7 +115,7 @@ impl Config {
     }
 
     pub fn is_sqlite(&self) -> bool {
-        self.database_url.starts_with("sqlite://")
+        self.database_url.starts_with("sqlite:")
     }
 }
 
