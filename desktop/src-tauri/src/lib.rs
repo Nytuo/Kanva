@@ -30,13 +30,31 @@ fn is_desktop() -> bool {
     true
 }
 
+#[tauri::command]
+fn local_password(app: tauri::AppHandle, candidate: String) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join(".local_password");
+    match std::fs::read_to_string(&path) {
+        Ok(saved) if !saved.trim().is_empty() => Ok(saved.trim().to_string()),
+        _ => {
+            std::fs::write(&path, &candidate).map_err(|e| e.to_string())?;
+            Ok(candidate)
+        }
+    }
+}
+
 /// Start the embedded Kanva server on a random available port.
 /// Returns the URL or an error message.
-pub async fn start_embedded_server(data_dir: &str) -> Result<(String, u16), String> {
+pub async fn start_embedded_server(
+    data_dir: &str,
+    web_dir: Option<String>,
+) -> Result<(String, u16), String> {
     // Find an available port
     let port = portpicker::pick_unused_port().ok_or("No available port")?;
 
     let mut config = kanva_server::Config::standalone(port, data_dir);
+    config.static_dir = web_dir;
 
     // Persist the JWT secret so tokens remain valid across app restarts.
     // Config::standalone() generates a new random secret each call; we
@@ -83,6 +101,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_embedded_server_url,
             is_desktop,
+            local_password,
             updater::check_for_update,
             updater::install_update,
             updater::open_releases_page,
@@ -114,11 +133,22 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir).expect("Failed to create data dir");
             let data_dir_str = data_dir.to_string_lossy().to_string();
 
+            let web_dir = app.path().resource_dir().ok().and_then(|res| {
+                for candidate in ["web", "web/dist"] {
+                    let p = res.join(candidate);
+                    if p.join("index.html").is_file() {
+                        return Some(p.to_string_lossy().to_string());
+                    }
+                }
+                tracing::warn!("Bundled web assets not found under {:?}", res);
+                None
+            });
+
             // Spawn the embedded server in a background task
             tauri::async_runtime::spawn(async move {
                 tracing::info!("Starting embedded Kanva server...");
 
-                match start_embedded_server(&data_dir_str).await {
+                match start_embedded_server(&data_dir_str, web_dir).await {
                     Ok((url, port)) => {
                         tracing::info!("Embedded server running at {} (port {})", url, port);
 

@@ -39,6 +39,7 @@ pub struct Config {
     pub atlassian_redirect_uri: String,
     pub max_upload_size_mb: usize,
     pub upload_dir: String,
+    pub static_dir: Option<String>,
     /// When true, the server runs in standalone/embedded mode.
     /// Teams features are disabled and CORS is permissive.
     pub standalone_mode: bool,
@@ -74,6 +75,7 @@ impl Config {
                 .unwrap_or_else(|_| "10".to_string())
                 .parse()?,
             upload_dir: std::env::var("UPLOAD_DIR").unwrap_or_else(|_| "./uploads".to_string()),
+            static_dir: std::env::var("STATIC_DIR").ok().filter(|s| !s.is_empty()),
             standalone_mode: std::env::var("STANDALONE_MODE")
                 .unwrap_or_else(|_| "false".to_string())
                 .parse()?,
@@ -110,6 +112,7 @@ impl Config {
             atlassian_redirect_uri: String::new(),
             max_upload_size_mb: 50,
             upload_dir: format!("{}/uploads", data_dir),
+            static_dir: None,
             standalone_mode: true,
         }
     }

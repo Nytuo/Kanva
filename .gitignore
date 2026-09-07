@@ -39,3 +39,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Keep web/dist present so Tauri (desktop) resource bundling resolves in dev;
+# real builds populate it via beforeBuildCommand.
+!web/dist/
+web/dist/*
+!web/dist/.gitkeep

@@ -2,6 +2,7 @@ use axum::{http, Router, Json, extract::State};
 use tower_http::cors::{CorsLayer, Any};
 use tower_http::trace::TraceLayer;
 use tower_http::compression::CompressionLayer;
+use tower_http::services::{ServeDir, ServeFile};
 
 use crate::{AppState, ServerInfo};
 
@@ -59,6 +60,9 @@ pub fn create_router(state: AppState) -> Router {
             .allow_credentials(true)
     };
 
+    let static_dir = state.config.static_dir.clone();
+    let upload_dir = state.config.upload_dir.clone();
+
     let mut router = Router::new()
         .nest("/api/auth", auth::router())
         .nest("/api/users", users::router())
@@ -74,10 +78,23 @@ pub fn create_router(state: AppState) -> Router {
         router = router.nest("/api/teams", teams::router());
     }
 
-    router
+    router = router
         .route("/api/server-info", axum::routing::get(server_info))
         .route("/ws", axum::routing::get(crate::ws::ws_handler))
-        .route("/health", axum::routing::get(health_check))
+        .route("/health", axum::routing::get(health_check));
+
+    // Serve the web SPA and user uploads from the same origin as the API.
+    // Only enabled when a static dir is configured (embedded desktop app).
+    // Explicit API/WS routes above take precedence; everything else falls
+    // through to the SPA's index.html so client-side routing works on reload.
+    if let Some(dir) = static_dir {
+        let index = std::path::Path::new(&dir).join("index.html");
+        router = router
+            .nest_service("/uploads", ServeDir::new(&upload_dir))
+            .fallback_service(ServeDir::new(&dir).fallback(ServeFile::new(index)));
+    }
+
+    router
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .layer(cors)

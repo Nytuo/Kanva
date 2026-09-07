@@ -10,17 +10,45 @@ const LOCAL_USERNAME = 'localuser';
 const LOCAL_DISPLAY_NAME = 'Local User';
 const LOCAL_PASSWORD_KEY = 'kanva_local_password'; // NOSONAR — localStorage key, not a credential
 
-function getOrCreateLocalPassword(): string {
-  let pw = localStorage.getItem(LOCAL_PASSWORD_KEY);
-  if (!pw) {
-    // Generate a random 24-char password once and store it
-    pw = Array.from(crypto.getRandomValues(new Uint8Array(18)))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-      .slice(0, 24);
-    localStorage.setItem(LOCAL_PASSWORD_KEY, pw);
+function generatePassword(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(18)))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 24);
+}
+
+function readLocalStoragePassword(): string | null {
+  try {
+    return localStorage.getItem(LOCAL_PASSWORD_KEY);
+  } catch {
+    return null;
   }
-  return pw;
+}
+
+function writeLocalStoragePassword(pw: string): void {
+  try {
+    localStorage.setItem(LOCAL_PASSWORD_KEY, pw);
+  } catch {
+    // ignore — private mode / disabled storage
+  }
+}
+
+async function getOrCreateLocalPassword(): Promise<string> {
+  const existing = readLocalStoragePassword();
+  const candidate = existing ?? generatePassword();
+  if (isTauri()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const pw = await invoke<string>('local_password', { candidate });
+      writeLocalStoragePassword(pw);
+      return pw;
+    } catch {
+      // Older desktop build without the command — fall back to localStorage.
+    }
+  }
+
+  if (!existing) writeLocalStoragePassword(candidate);
+  return candidate;
 }
 
 /**
@@ -146,6 +174,11 @@ export function useTauriEmbeddedServer() {
     // Never auto-selects the embedded server — the user picks from the server
     // selection page instead.
     function registerEmbeddedServer(url: string) {
+      if (!/^https?:$/.test(globalThis.location.protocol)) {
+        globalThis.location.replace(url);
+        return;
+      }
+
       const existing = servers.find((s) => s.isEmbedded);
 
       if (existing) {
@@ -222,9 +255,9 @@ export function useStandaloneAutoLogin(isEmbeddedReady: boolean) {
       return;
     }
 
-    const password = getOrCreateLocalPassword();
-
     async function autoLogin() {
+      const password = await getOrCreateLocalPassword();
+
       // Even if a token is already stored, verify it against the current
       // embedded server instance. The server persists its JWT secret across
       // restarts (see desktop/src-tauri/src/lib.rs), but on a first launch
